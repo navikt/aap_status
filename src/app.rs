@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+use crate::Pulls;
 use crate::pulls::{GitHubApi, PullRequest};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -10,7 +12,7 @@ pub struct TemplateApp {
     github: GitHubApi,
 
     #[serde(skip)]
-    pull_requests: Vec<PullRequest>,
+    pull_requests: Arc<Mutex<Vec<PullRequest>>>,
 }
 
 impl Default for TemplateApp {
@@ -18,7 +20,7 @@ impl Default for TemplateApp {
         Self {
             label: String::from("<GitHub PAT>"),
             github: GitHubApi::create(),
-            pull_requests: vec![],
+            pull_requests: Arc::new(Mutex::new(vec![])),
         }
     }
 }
@@ -78,12 +80,21 @@ impl eframe::App for TemplateApp {
                 };
             });
 
+            // github.repos().for_each(|repo: &&str| {
+            //     if ui.button(repo.to_string()).clicked() {
+            //         match github.pull_requests(repo) {
+            //             Ok(res) => *pull_requests = res.pull_requests,
+            //             Err(err) => println!("Error: {:?}", err)
+            //         }
+            //     }
+            // });
+
             github.repos().for_each(|repo: &&str| {
                 if ui.button(repo.to_string()).clicked() {
-                    match github.pull_requests(repo) {
-                        Ok(res) => *pull_requests = res.pull_requests,
-                        Err(err) => println!("Error: {:?}", err)
-                    }
+                    let prs = self.pull_requests.clone();
+                    github.pull_requests(repo, move |pulls: Pulls| {
+                        *prs.lock().unwrap() = pulls.pull_requests;
+                    });
                 }
             });
         });
@@ -91,10 +102,11 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Pull Requests");
 
-            if pull_requests.is_empty() {
+            let prs = self.pull_requests.clone();
+            if prs.lock().unwrap().is_empty() {
                 ui.label("All good!");
             } else {
-                pull_requests.into_iter().for_each(|pr| {
+                prs.lock().unwrap().clone().into_iter().for_each(|pr| {
                     ui.hyperlink(&pr.html_url);
                 });
             }
