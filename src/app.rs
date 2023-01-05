@@ -78,9 +78,6 @@ impl eframe::App for TemplateApp {
             ui.horizontal(|ui| {
                 ui.label("Token");
                 ui.text_edit_singleline(token);
-                // if ui.text_edit_singleline(token).lost_focus() {
-                //
-                // };
             });
 
             github.repos().for_each(|repo: &&str| {
@@ -94,27 +91,28 @@ impl eframe::App for TemplateApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            use egui_extras::{Size, StripBuilder};
+
             ui.heading("Pull Requests");
 
             let prs = self.pull_requests.clone();
             if prs.lock().unwrap().is_empty() {
                 ui.label("All good!");
             } else {
-                prs.lock().unwrap().clone().into_iter().for_each(|pr| {
-                    ui.hyperlink(&pr.html_url);
-                });
+                StripBuilder::new(ui)
+                    .size(Size::remainder().at_least(100.0))
+                    .vertical(|mut strip| {
+                        strip.cell(|ui| {
+                            egui::ScrollArea::horizontal().show(ui, |ui| {
+                                table.table_ui(ui, &prs.lock().unwrap().clone())
+                            });
+                        });
+                    });
             }
 
             ui.separator();
 
-            use egui_extras::{Size, StripBuilder};
-            StripBuilder::new(ui)
-                .size(Size::remainder().at_least(100.0)) // for the table
-                .vertical(|mut strip| {
-                    strip.cell(|ui| {
-                        egui::ScrollArea::horizontal().show(ui, |ui| { table.table_ui(ui) });
-                    });
-                });
+            ui.label("Hello there!");
         });
     }
 }

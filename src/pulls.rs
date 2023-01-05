@@ -61,13 +61,21 @@ pub struct Pulls {
 pub struct PullRequest {
     pub url: String,
     pub html_url: String,
+    pub number: u32,
     id: u32,
     base: Base,
-    title: String,
+    pub title: String,
+    pub body: String,
     state: String,
     user: User,
     created_at: String,
-    updated_at: String,
+    pub updated_at: String,
+}
+
+impl PullRequest {
+    pub fn user(self) -> String {
+        self.user.login
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

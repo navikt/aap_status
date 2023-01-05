@@ -1,3 +1,9 @@
+use std::collections::BTreeMap;
+
+use egui::Ui;
+
+use crate::pulls::PullRequest;
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct Table {
@@ -23,7 +29,7 @@ impl Default for Table {
 const NUM_MANUAL_ROWS: usize = 20;
 
 impl Table {
-    pub fn table_ui(&mut self, ui: &mut egui::Ui) {
+    pub fn table_ui(&mut self, ui: &mut Ui, prs: &Vec<PullRequest>) {
         use egui_extras::{Column, TableBuilder};
 
         let mut table = TableBuilder::new(ui)
@@ -51,24 +57,47 @@ impl Table {
             header.col(|ui| { ui.strong("Content"); });
         })
             .body(|mut body| {
-                for row_index in 0..NUM_MANUAL_ROWS {
-                    let is_thick = thick_row(row_index);
-                    let row_height = if is_thick { 30.0 } else { 18.0 };
-                    body.row(row_height, |mut row| {
-                        row.col(|ui| { ui.label(row_index.to_string()); });
-                        row.col(|ui| { expanding_content(ui); });
-                        row.col(|ui| { ui.label(long_text(row_index)); });
-                        row.col(|ui| {
-                            ui.style_mut().wrap = Some(false);
-                            if is_thick { ui.heading("Extra thick row"); } else { ui.label("Normal row"); }
+                let prs_by_author = prs.into_iter().fold(BTreeMap::new(), |mut acc: BTreeMap<String, Vec<PullRequest>>, pr| {
+                    acc.entry(pr.clone().user()).or_default().push(pr.clone());
+                    acc
+                });
+
+                for (author, _prs) in &prs_by_author {
+                    body.row(30.0, |mut row | {
+                        row.col(|ui| { ui.heading("-----------"); });
+                        row.col(|ui| { ui.heading("-----------"); });
+                        row.col(|ui| { ui.heading("-----------"); });
+                        row.col(|ui| { ui.heading(author); });
+                    });
+
+                    _prs.into_iter().for_each(| pr| {
+                        body.row(18.0, |mut row | {
+                            row.col(|ui| { ui.label(format!("{}", &pr.number)); });
+                            row.col(|ui| { ui.label(&pr.title); });
+                            row.col(|ui| { ui.label(&pr.updated_at); });
+                            row.col(|ui| { ui.hyperlink(&pr.html_url); });
                         });
                     });
                 }
+
+                // for row_index in 0..NUM_MANUAL_ROWS {
+                //     let is_thick = thick_row(row_index);
+                //     let row_height = if is_thick { 30.0 } else { 18.0 };
+                //     body.row(row_height, |mut row| {
+                //         row.col(|ui| { ui.label(row_index.to_string()); });
+                //         row.col(|ui| { expanding_content(ui); });
+                //         row.col(|ui| { ui.label(long_text(row_index)); });
+                //         row.col(|ui| {
+                //             ui.style_mut().wrap = Some(false);
+                //             if is_thick { ui.heading("Extra thick row"); } else { ui.label("Normal row"); }
+                //         });
+                //     });
+                // }
             });
     }
 }
 
-fn expanding_content(ui: &mut egui::Ui) {
+fn expanding_content(ui: &mut Ui) {
     let width = ui.available_width().clamp(20.0, 200.0);
     let height = ui.available_height();
     let (rect, _response) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());
