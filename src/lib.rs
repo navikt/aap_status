@@ -2,6 +2,8 @@
 
 mod app;
 mod pulls;
+mod table;
 
 pub use app::TemplateApp;
 pub use pulls::Pulls;
+pub use table::Table;

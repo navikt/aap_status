@@ -1,12 +1,14 @@
 use std::sync::{Arc, Mutex};
-use crate::Pulls;
+
+use crate::{Pulls, Table};
 use crate::pulls::{GitHubApi, PullRequest};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
-    label: String,
+    token: String,
+    table: Table,
 
     #[serde(skip)]
     github: GitHubApi,
@@ -18,8 +20,9 @@ pub struct TemplateApp {
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
-            label: String::from("<GitHub PAT>"),
-            github: GitHubApi::create(),
+            token: String::from("<GitHub PAT>"),
+            table: Table::default(),
+            github: GitHubApi::default(),
             pull_requests: Arc::new(Mutex::new(vec![])),
         }
     }
@@ -50,7 +53,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, github, pull_requests } = self;
+        let Self { token, table, github, pull_requests: _ } = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -74,25 +77,16 @@ impl eframe::App for TemplateApp {
 
             ui.horizontal(|ui| {
                 ui.label("Token");
-                if ui.text_edit_singleline(label).lost_focus() {
-                    github.update_token(label.to_owned());
-                    println!("{}", &label);
-                };
+                ui.text_edit_singleline(token);
+                // if ui.text_edit_singleline(token).lost_focus() {
+                //
+                // };
             });
-
-            // github.repos().for_each(|repo: &&str| {
-            //     if ui.button(repo.to_string()).clicked() {
-            //         match github.pull_requests(repo) {
-            //             Ok(res) => *pull_requests = res.pull_requests,
-            //             Err(err) => println!("Error: {:?}", err)
-            //         }
-            //     }
-            // });
 
             github.repos().for_each(|repo: &&str| {
                 if ui.button(repo.to_string()).clicked() {
                     let prs = self.pull_requests.clone();
-                    github.pull_requests(repo, move |pulls: Pulls| {
+                    github.pull_requests(token, repo, move |pulls: Pulls| {
                         *prs.lock().unwrap() = pulls.pull_requests;
                     });
                 }
@@ -110,15 +104,17 @@ impl eframe::App for TemplateApp {
                     ui.hyperlink(&pr.html_url);
                 });
             }
-        });
 
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally choose either panels OR windows.");
-            });
-        }
+            ui.separator();
+
+            use egui_extras::{Size, StripBuilder};
+            StripBuilder::new(ui)
+                .size(Size::remainder().at_least(100.0)) // for the table
+                .vertical(|mut strip| {
+                    strip.cell(|ui| {
+                        egui::ScrollArea::horizontal().show(ui, |ui| { table.table_ui(ui) });
+                    });
+                });
+        });
     }
 }
