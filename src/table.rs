@@ -34,7 +34,7 @@ impl Table {
             .striped(self.striped)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(Column::auto())
-            .column(Column::initial(100.0).range(40.0..=300.0).resizable(true))
+            .column(Column::auto())
             .column(Column::auto())
             .column(
                 Column::initial(100.0)
@@ -57,28 +57,23 @@ impl Table {
             header.col(|ui| { ui.strong("URL"); });
         })
             .body(|mut body| {
-                // let prs_by_author = prs.into_iter().fold(BTreeMap::new(), |mut acc: BTreeMap<String, Vec<PullRequest>>, pr| {
-                //     acc.entry(pr.clone().user()).or_default().push(pr.clone());
-                //     acc
-                // });
-
                 for (name, prs) in pulls.into_iter() {
-                    body.row(30.0, |mut row| {
+                    body.row(40.0, |mut row| {
                         row.col(|ui| { ui.heading(""); });
                         row.col(|ui| { ui.heading(name); });
-                        row.col(|ui| { ui.heading("----------------------"); });
-                        row.col(|ui| { ui.heading("-----------"); });
-                        row.col(|ui| { ui.heading("-----------"); });
+                        row.col(|ui| { ui.heading(""); });
+                        row.col(|ui| { ui.heading(""); });
+                        row.col(|ui| { ui.heading(""); });
                     });
 
                     prs.into_iter().for_each(|pr| {
                         let _pr = pr.clone();
                         body.row(18.0, |mut row| {
                             row.col(|ui| { ui.label(format!("{}", &_pr.number)); });
-                            row.col(|ui| { ui.label(&_pr.title.unwrap()); });
+                            row.col(|ui| { ui.hyperlink_to(&_pr.title.unwrap(), &_pr.html_url.unwrap()); });
                             row.col(|ui| { ui.label(&_pr.updated_at.unwrap()); });
                             row.col(|ui| { ui.label(&_pr.user.unwrap().login); });
-                            row.col(|ui| { ui.hyperlink(&_pr.html_url.unwrap()); });
+                            row.col(|ui| { ui.label("temp"); });
                         });
                     });
                 }

@@ -108,46 +108,14 @@ impl eframe::App for TemplateApp {
                         * _pulls.lock().unwrap().entry(repo.to_string()).or_default() = prs;
                     });
                 }
-
-                // *_repositories.lock().unwrap() = repos;
-
-                // github.repos().for_each(|repo| {
-                //     let prs = &vec![];
-                //     github.pull_requests(token, repo, move |response: PullsResponse| {
-                //         prs = response.pull_requests;
-                //     });
-                //
-                //     let mut run: Option<Runs> = None;
-                //     // github.runs(token, repo, move |response: Runs| { run = Some(response); });
-                //
-                //     *_repositories.lock().unwrap().push(Repository {
-                //         name: repo.to_string(),
-                //         pull_requests: prs.to_owned(),
-                //         runs: run,
-                //     });
-                // });
             }
 
             if ui.button("Pull Requests").clicked() {
                 *state = State::Pulls
-
-                // github.repos().for_each(|repo| {
-                //     let prs = self.pull_requests.clone();
-                //     github.pull_requests(token, repo, move |response: PullsResponse| {
-                //         *prs.lock().unwrap() = response.pull_requests;
-                //     });
-                // })
             }
 
             if ui.button("Workflows").clicked() {
                 *state = State::Runs
-
-                // github.repos().for_each(|repo|{
-                //     let _runs = self.runs.clone();
-                //     github.runs(token, repo, move |response: Runs| {
-                //         *_runs.lock().unwrap().push(response);
-                //     });
-                // })
             }
         });
 
