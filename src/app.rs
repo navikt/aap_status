@@ -1,7 +1,16 @@
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use crate::{Pulls, Table};
-use crate::pulls::{GitHubApi, PullRequest};
+use crate::{GitHubApi, PullRequest, Table, DataOrEmpty};
+use crate::github::Runs;
+
+#[derive(PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize)]
+pub enum State {
+    Welcome,
+    Pulls,
+    Runs,
+}
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -9,12 +18,16 @@ use crate::pulls::{GitHubApi, PullRequest};
 pub struct TemplateApp {
     token: String,
     table: Table,
+    state: State,
 
     #[serde(skip)]
     github: GitHubApi,
 
     #[serde(skip)]
-    pull_requests: Arc<Mutex<Vec<PullRequest>>>,
+    pulls: Arc<Mutex<BTreeMap<String, Vec<PullRequest>>>>,
+
+    #[serde(skip)]
+    runs: Arc<Mutex<BTreeMap<String, Vec<Runs>>>>,
 }
 
 impl Default for TemplateApp {
@@ -22,8 +35,10 @@ impl Default for TemplateApp {
         Self {
             token: String::from("<GitHub PAT>"),
             table: Table::default(),
+            state: State::Welcome,
             github: GitHubApi::default(),
-            pull_requests: Arc::new(Mutex::new(vec![])),
+            pulls: Arc::new(Mutex::new(BTreeMap::new())),
+            runs: Arc::new(Mutex::new(BTreeMap::new())),
         }
     }
 }
@@ -53,12 +68,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { token, table, github, pull_requests: _ } = self;
-
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
+        let Self { token, table, state, github, pulls: _, runs: _ } = self;
 
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -80,14 +90,65 @@ impl eframe::App for TemplateApp {
                 ui.text_edit_singleline(token);
             });
 
-            github.repos().for_each(|repo: &&str| {
-                if ui.button(repo.to_string()).clicked() {
-                    let prs = self.pull_requests.clone();
-                    github.pull_requests(token, repo, move |pulls: Pulls| {
-                        *prs.lock().unwrap() = pulls.pull_requests;
+            if ui.button("Fetch/Refresh").clicked() {
+                let repos = [
+                    "aap-andre-ytelser", "aap-api", "aap-bot", "aap-devtools", "aap-inntekt",
+                    "aap-libs", "aap-meldeplikt", "aap-oppgavestyring", "aap-personopplysninger",
+                    "aap-sink", "aap-sykepengedager", "aap-utbetaling", "aap-vedtak",
+                ];
+
+                for repo in repos {
+                    let _pulls = self.pulls.clone();
+                    github.pull_requests(token, &repo.to_string(), move |response: DataOrEmpty<Vec<PullRequest>>| {
+                        let prs = match response {
+                            DataOrEmpty::Data(prs) => prs,
+                            DataOrEmpty::Empty{} => Vec::default(),
+                        };
+
+                        * _pulls.lock().unwrap().entry(repo.to_string()).or_default() = prs;
                     });
                 }
-            });
+
+                // *_repositories.lock().unwrap() = repos;
+
+                // github.repos().for_each(|repo| {
+                //     let prs = &vec![];
+                //     github.pull_requests(token, repo, move |response: PullsResponse| {
+                //         prs = response.pull_requests;
+                //     });
+                //
+                //     let mut run: Option<Runs> = None;
+                //     // github.runs(token, repo, move |response: Runs| { run = Some(response); });
+                //
+                //     *_repositories.lock().unwrap().push(Repository {
+                //         name: repo.to_string(),
+                //         pull_requests: prs.to_owned(),
+                //         runs: run,
+                //     });
+                // });
+            }
+
+            if ui.button("Pull Requests").clicked() {
+                *state = State::Pulls
+
+                // github.repos().for_each(|repo| {
+                //     let prs = self.pull_requests.clone();
+                //     github.pull_requests(token, repo, move |response: PullsResponse| {
+                //         *prs.lock().unwrap() = response.pull_requests;
+                //     });
+                // })
+            }
+
+            if ui.button("Workflows").clicked() {
+                *state = State::Runs
+
+                // github.repos().for_each(|repo|{
+                //     let _runs = self.runs.clone();
+                //     github.runs(token, repo, move |response: Runs| {
+                //         *_runs.lock().unwrap().push(response);
+                //     });
+                // })
+            }
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -95,20 +156,21 @@ impl eframe::App for TemplateApp {
 
             ui.heading("Pull Requests");
 
-            let prs = self.pull_requests.clone();
-            if prs.lock().unwrap().is_empty() {
-                ui.label("All good!");
-            } else {
-                StripBuilder::new(ui)
-                    .size(Size::remainder().at_least(100.0))
-                    .vertical(|mut strip| {
-                        strip.cell(|ui| {
-                            egui::ScrollArea::horizontal().show(ui, |ui| {
-                                table.table_ui(ui, &prs.lock().unwrap().clone())
+            match state {
+                State::Pulls => {
+                    StripBuilder::new(ui)
+                        .size(Size::remainder().at_least(100.0))
+                        .vertical(|mut strip| {
+                            strip.cell(|ui| {
+                                egui::ScrollArea::horizontal().show(ui, |ui| {
+                                    table.table_ui(ui, &self.pulls.lock().unwrap().clone())
+                                });
                             });
                         });
-                    });
-            }
+                }
+                State::Runs => { ui.label("Workflow runs to be continued..."); }
+                State::Welcome => { ui.label("Welcome you are!"); }
+            };
 
             ui.separator();
 
