@@ -42,7 +42,6 @@ impl Table {
                     .resizable(true)
                     .clip(true),
             )
-            .column(Column::remainder())
             .min_scrolled_height(0.0);
 
         if let Some(row_nr) = self.scroll_to_row.take() {
@@ -54,17 +53,18 @@ impl Table {
             header.col(|ui| { ui.strong("Title"); });
             header.col(|ui| { ui.strong("Last Update"); });
             header.col(|ui| { ui.strong("Author"); });
-            header.col(|ui| { ui.strong("URL"); });
         })
             .body(|mut body| {
                 for (name, prs) in pulls.into_iter() {
-                    body.row(40.0, |mut row| {
-                        row.col(|ui| { ui.heading(""); });
-                        row.col(|ui| { ui.heading(name); });
-                        row.col(|ui| { ui.heading(""); });
-                        row.col(|ui| { ui.heading(""); });
-                        row.col(|ui| { ui.heading(""); });
-                    });
+
+                    if !prs.is_empty() {
+                        body.row(40.0, |mut row| {
+                            row.col(|ui| { ui.heading(""); });
+                            row.col(|ui| { ui.heading(name); });
+                            row.col(|ui| { ui.heading(""); });
+                            row.col(|ui| { ui.heading(""); });
+                        });
+                    }
 
                     prs.into_iter().for_each(|pr| {
                         let _pr = pr.clone();
@@ -73,7 +73,6 @@ impl Table {
                             row.col(|ui| { ui.hyperlink_to(&_pr.title.unwrap(), &_pr.html_url.unwrap()); });
                             row.col(|ui| { ui.label(&_pr.updated_at.unwrap()); });
                             row.col(|ui| { ui.label(&_pr.user.unwrap().login); });
-                            row.col(|ui| { ui.label("temp"); });
                         });
                     });
                 }

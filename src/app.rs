@@ -109,7 +109,7 @@ impl eframe::App for TemplateApp {
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("GitHub Status");
 
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.label("GitHub PAT:");
                 ui.add(egui::TextEdit::singleline(token).password(!show_token.clone()));
 
