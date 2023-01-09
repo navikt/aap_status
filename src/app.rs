@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, Mutex};
+
 use eframe::epaint::Color32;
 use egui::TextFormat;
 
@@ -34,7 +35,7 @@ pub struct TemplateApp {
     pulls: Arc<Mutex<BTreeMap<String, Vec<PullRequest>>>>,
 
     #[serde(skip)]
-    runs: Arc<Mutex<BTreeMap<String, Vec<Runs>>>>,
+    runs: Arc<Mutex<BTreeMap<String, Runs>>>,
 }
 
 impl Default for TemplateApp {
@@ -92,7 +93,17 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { token, show_token, table, state, repositories, new_repo, github, pulls: _, runs: _ } = self;
+        let Self {
+            token,
+            show_token,
+            table,
+            state,
+            repositories,
+            new_repo,
+            github,
+            pulls: _,
+            runs: _,
+        } = self;
 
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -121,13 +132,19 @@ impl eframe::App for TemplateApp {
             if ui.button("Fetch/Refresh").clicked() {
                 for repo in repositories.clone().into_iter() {
                     let _pulls = self.pulls.clone();
+                    let _repo = repo.clone();
                     github.pull_requests(token, &repo.to_string(), move |response: DataOrEmpty<Vec<PullRequest>>| {
                         let prs = match response {
                             DataOrEmpty::Data(prs) => prs,
                             DataOrEmpty::Empty {} => Vec::default(),
                         };
 
-                        *_pulls.lock().unwrap().entry(repo.to_string()).or_default() = prs;
+                        *_pulls.lock().unwrap().entry(repo).or_default() = prs;
+                    });
+
+                    let _runs = self.runs.clone();
+                    github.runs(token, &_repo.to_string(), move |response: Runs| {
+                        *_runs.lock().unwrap().entry(_repo).or_insert(Runs::default()) = response;
                     });
                 }
             }
@@ -164,7 +181,15 @@ impl eframe::App for TemplateApp {
                 State::Runs => {
                     ui.heading("Workflow Runs");
 
-                    ui.label("Workflow runs to be continued...");
+                    repositories.clone().into_iter().for_each(|repo| {
+                        let _runs = &self.runs.lock().unwrap().clone();
+                        let _run = _runs.get(&repo);
+                        if _run.is_some() {
+                            let run = _run.unwrap();
+                            ui.label(&repo);
+                            ui.label(format!("Total Runs: {}", run.total_count));
+                        }
+                    });
                 }
                 State::Repositories => {
                     ui.heading("Repositories");

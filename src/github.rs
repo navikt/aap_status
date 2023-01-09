@@ -40,7 +40,7 @@ impl GitHubApi {
     pub fn runs(
         &self,
         token: &mut String,
-        repo: &str,
+        repo: &String,
         callback: impl 'static + Send + FnOnce(Runs),
     ) {
         let url = format!("https://api.github.com/repos/navikt/{}/actions/runs", repo);
@@ -51,13 +51,19 @@ impl GitHubApi {
                 ("User-Agent", "rust web-api-client demo"),
                 ("Authorization", format!("Bearer {}", token.trim().to_string()).as_str()),
             ]),
-            ..ehttp::Request::get(url)
+            ..ehttp::Request::get(&url)
         };
 
         ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
-            let body = result.unwrap().bytes;
-            let runs = serde_json::from_slice(&body).unwrap();
-            callback(runs);
+            match result {
+                Ok(res) => {
+                    match serde_json::from_slice(&res.bytes) {
+                        Ok(runs) => callback(runs),
+                        Err(e) => println!("error: {:?} when parsing runs with content {:?}", e, res)
+                    }
+                },
+                Err(e) => println!("Error {:?} from {:?}", e, &url)
+            }
         });
     }
 }
@@ -126,15 +132,24 @@ pub struct Head {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Runs {
-    total_count: i32,
-    workflow_runs: Vec<WorkflowRun>,
+    pub total_count: i32,
+    pub workflow_runs: Vec<WorkflowRun>,
+}
+
+impl Default for Runs {
+    fn default() -> Self {
+        Self {
+            total_count: 0,
+            workflow_runs: vec![],
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorkflowRun {
-    id: i32,
+    id: i64,
     name: Option<String>,
-    check_suite_id: Option<i32>,
+    check_suite_id: Option<i64>,
     check_suite_node_id: Option<String>,
     head_sha: String,
     path: String,
@@ -143,7 +158,7 @@ pub struct WorkflowRun {
     event: String,
     status: Option<String>,
     conclusion: Option<String>,
-    workflow_id: i32,
+    workflow_id: i64,
     url: String,
     html_url: String,
     pull_requests: Vec<PullRequest>,
@@ -172,7 +187,7 @@ pub struct Actor {
     name: Option<String>,
     email: Option<String>,
     login: String,
-    id: i32,
+    id: i64,
     node_id: String,
     avatar_url: String,
     gravatar_id: String,
@@ -192,7 +207,7 @@ pub struct Base {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Repo {
-    id: u32,
+    id: i64,
     url: String,
     name: String,
 }
