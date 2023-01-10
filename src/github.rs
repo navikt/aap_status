@@ -11,7 +11,7 @@ impl GitHubApi {
         &self,
         token: &mut String,
         repo: &String,
-        callback: impl 'static + Send + FnOnce(DataOrEmpty<Vec<PullRequest>>),
+        callback: impl 'static + Send + FnOnce(Vec<PullRequest>),
     ) {
         let url = format!("https://api.github.com/repos/navikt/{}/pulls", repo);
 
@@ -27,8 +27,13 @@ impl GitHubApi {
         ehttp::fetch(request, move |result: ehttp::Result<ehttp::Response>| {
             match result {
                 Ok(res) => {
-                    match serde_json::from_slice(&res.bytes) {
-                        Ok(pulls) => callback(pulls),
+                    match serde_json::from_slice::<DataOrEmpty<Vec<PullRequest>>>(&res.bytes) {
+                        Ok(pulls) => {
+                            match pulls {
+                                DataOrEmpty::Data(prs) => callback(prs),
+                                DataOrEmpty::Empty {} => callback(Vec::<PullRequest>::default()),
+                            };
+                        },
                         Err(e) => println!("error: {:?} when parsing pulls with content {:?}", e, res)
                     }
                 },
@@ -82,7 +87,7 @@ pub struct Repository {
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-pub enum DataOrEmpty<T> {
+enum DataOrEmpty<T> {
     Data(T),
     Empty {},
 }

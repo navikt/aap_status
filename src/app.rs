@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use eframe::epaint::Color32;
 use egui::TextFormat;
 
-use crate::{DataOrEmpty, GitHubApi, PullRequest, Table};
+use crate::{GitHubApi, PullRequest, Table};
 use crate::github::Runs;
 
 #[derive(PartialEq)]
@@ -17,15 +17,13 @@ pub enum State {
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
+#[serde(default)]
 pub struct TemplateApp {
     token: String,
     show_token: bool,
     table: Table,
     state: State,
     repositories: HashSet<String>,
-
-    // #[serde(skip)]
     new_repo: String,
 
     #[serde(skip)]
@@ -85,11 +83,6 @@ impl TemplateApp {
 }
 
 impl eframe::App for TemplateApp {
-    /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
-    }
-
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -105,21 +98,7 @@ impl eframe::App for TemplateApp {
             runs: _,
         } = self;
 
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        _frame.close();
-                    }
-                });
-            });
-        });
-
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("GitHub Status");
-
             ui.horizontal_wrapped(|ui| {
                 ui.label("GitHub PAT:");
                 ui.add(egui::TextEdit::singleline(token).password(!show_token.clone()));
@@ -128,24 +107,30 @@ impl eframe::App for TemplateApp {
                     .on_hover_text("Show/hide token")
                     .clicked() { *show_token = !show_token.clone(); };
             });
+        });
+
+        egui::SidePanel::left("side_panel").show(ctx, |ui| {
+            ui.heading("GitHub Status");
 
             if ui.button("Fetch/Refresh").clicked() {
-                for repo in repositories.clone().into_iter() {
-                    let _pulls = self.pulls.clone();
-                    let _repo = repo.clone();
-                    github.pull_requests(token, &repo.to_string(), move |response: DataOrEmpty<Vec<PullRequest>>| {
-                        let prs = match response {
-                            DataOrEmpty::Data(prs) => prs,
-                            DataOrEmpty::Empty {} => Vec::default(),
-                        };
-
-                        *_pulls.lock().unwrap().entry(repo).or_default() = prs;
-                    });
-
-                    let _runs = self.runs.clone();
-                    github.runs(token, &_repo.to_string(), move |response: Runs| {
-                        *_runs.lock().unwrap().entry(_repo).or_insert(Runs::default()) = response;
-                    });
+                match state {
+                    State::Pulls => {
+                        for repo in repositories.clone().into_iter() {
+                            let _pulls = self.pulls.clone();
+                            github.pull_requests(token, &repo.to_string(), move |response: Vec<PullRequest>| {
+                                *_pulls.lock().unwrap().entry(repo).or_default() = response;
+                            });
+                        }
+                    },
+                    State::Runs => {
+                        for repo in repositories.clone().into_iter() {
+                            let _runs = self.runs.clone();
+                            github.runs(token, &repo.to_string(), move |response: Runs| {
+                                *_runs.lock().unwrap().entry(repo).or_insert(Runs::default()) = response;
+                            });
+                        }
+                    },
+                    _ => println!("Unsupported refresh")
                 }
             }
 
@@ -236,5 +221,10 @@ impl eframe::App for TemplateApp {
                 }
             };
         });
+    }
+
+    /// Called by the frame work to save state before shutdown.
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, self);
     }
 }
