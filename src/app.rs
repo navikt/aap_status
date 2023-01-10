@@ -158,7 +158,7 @@ impl eframe::App for TemplateApp {
                         .vertical(|mut strip| {
                             strip.cell(|ui| {
                                 egui::ScrollArea::horizontal().show(ui, |ui| {
-                                    table.table_ui(ui, &self.pulls.lock().unwrap().clone())
+                                    table.pull_requests_ui(ui, &self.pulls.lock().unwrap().clone())
                                 });
                             });
                         });
