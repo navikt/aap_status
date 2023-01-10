@@ -5,7 +5,7 @@ use eframe::epaint::Color32;
 use egui::TextFormat;
 
 use crate::{GitHubApi, PullRequest, Table};
-use crate::github::Runs;
+use crate::github::{Runs, Workflow};
 
 #[derive(PartialEq)]
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -21,7 +21,8 @@ pub enum State {
 pub struct TemplateApp {
     token: String,
     show_token: bool,
-    table: Table,
+    pr_table: Table,
+    run_table: Table,
     state: State,
     repositories: HashSet<String>,
     new_repo: String,
@@ -33,6 +34,9 @@ pub struct TemplateApp {
     pulls: Arc<Mutex<BTreeMap<String, Vec<PullRequest>>>>,
 
     #[serde(skip)]
+    workflows: Arc<Mutex<BTreeMap<String, Vec<Workflow>>>>,
+
+    #[serde(skip)]
     runs: Arc<Mutex<BTreeMap<String, Runs>>>,
 }
 
@@ -41,7 +45,8 @@ impl Default for TemplateApp {
         Self {
             token: String::from("<GitHub PAT>"),
             show_token: false,
-            table: Table::default(),
+            pr_table: Table::default(),
+            run_table: Table::default(),
             state: State::Repositories,
             repositories: HashSet::from([
                 "aap-andre-ytelser".to_string(),
@@ -61,6 +66,7 @@ impl Default for TemplateApp {
             new_repo: String::from("<repo>"),
             github: GitHubApi::default(),
             pulls: Arc::new(Mutex::new(BTreeMap::new())),
+            workflows: Arc::new(Mutex::new(BTreeMap::new())),
             runs: Arc::new(Mutex::new(BTreeMap::new())),
         }
     }
@@ -89,12 +95,14 @@ impl eframe::App for TemplateApp {
         let Self {
             token,
             show_token,
-            table,
+            pr_table,
+            run_table,
             state,
             repositories,
             new_repo,
             github,
             pulls: _,
+            workflows: _,
             runs: _,
         } = self;
 
@@ -126,6 +134,7 @@ impl eframe::App for TemplateApp {
 
             ui.separator();
 
+            ui.label("Trykk for å laste inn data");
             if ui.button("Refresh").clicked() {
                 match state {
                     State::Pulls => {
@@ -143,6 +152,12 @@ impl eframe::App for TemplateApp {
                                 *_runs.lock().unwrap().entry(repo).or_insert(Runs::default()) = response;
                             });
                         }
+                        // for repo in repositories.clone().into_iter() {
+                        //     let _workflows = self.workflows.clone();
+                        //     github.workflows(token, &repo.to_string(), move |response: Vec<Workflow>| {
+                        //         *_workflows.lock().unwrap().entry(repo).or_default() = response;
+                        //     });
+                        // }
                     },
                     _ => println!("Unsupported refresh")
                 }
@@ -160,7 +175,7 @@ impl eframe::App for TemplateApp {
                         .vertical(|mut strip| {
                             strip.cell(|ui| {
                                 egui::ScrollArea::horizontal().show(ui, |ui| {
-                                    table.pull_requests_ui(ui, &self.pulls.lock().unwrap().clone())
+                                    pr_table.pull_requests_ui(ui, &self.pulls.lock().unwrap().clone())
                                 });
                             });
                         });
@@ -168,15 +183,26 @@ impl eframe::App for TemplateApp {
                 State::Runs => {
                     ui.heading("Workflow Runs");
 
-                    repositories.clone().into_iter().for_each(|repo| {
-                        let _runs = &self.runs.lock().unwrap().clone();
-                        let _run = _runs.get(&repo);
-                        if _run.is_some() {
-                            let run = _run.unwrap();
-                            ui.label(&repo);
-                            ui.label(format!("Total Runs: {}", run.total_count));
-                        }
-                    });
+                    StripBuilder::new(ui)
+                        .size(Size::remainder().at_least(100.0))
+                        .vertical(|mut strip| {
+                            strip.cell(|ui| {
+                                egui::ScrollArea::horizontal().show(ui, |ui| {
+                                    let _runs = &self.runs.lock().unwrap().clone();
+                                    let _workflows = &self.workflows.lock().unwrap().clone();
+                                    run_table.workflow_runs_ui(ui, _runs)
+                                });
+                            });
+                        });
+                    // repositories.clone().into_iter().for_each(|repo| {
+                    //     let _runs = &self.runs.lock().unwrap().clone();
+                    //     let _run = _runs.get(&repo);
+                    //     if _run.is_some() {
+                    //         let run = _run.unwrap();
+                    //         ui.label(&repo);
+                    //         ui.label(format!("Total Runs: {}", run.total_count));
+                    //     }
+                    // });
                 }
                 State::Repositories => {
                     ui.heading("Repositories");

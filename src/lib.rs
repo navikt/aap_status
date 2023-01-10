@@ -6,4 +6,4 @@ mod table;
 
 pub use app::TemplateApp;
 pub use table::Table;
-pub use github::{GitHubApi, PullRequest, Repository};
+pub use github::{GitHubApi, PullRequest, Repository, Runs, Workflow};
