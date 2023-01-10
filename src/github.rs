@@ -33,10 +33,10 @@ impl GitHubApi {
                                 DataOrEmpty::Data(prs) => callback(prs),
                                 DataOrEmpty::Empty {} => callback(Vec::<PullRequest>::default()),
                             };
-                        },
+                        }
                         Err(e) => println!("error: {:?} when parsing pulls with content {:?}", e, res)
                     }
-                },
+                }
                 Err(e) => println!("Error {:?} from {:?}", e, &url)
             }
         });
@@ -66,7 +66,7 @@ impl GitHubApi {
                         Ok(runs) => callback(runs),
                         Err(e) => println!("error: {:?} when parsing runs with content {:?}", e, res)
                     }
-                },
+                }
                 Err(e) => println!("Error {:?} from {:?}", e, &url)
             }
         });

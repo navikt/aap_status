@@ -112,7 +112,21 @@ impl eframe::App for TemplateApp {
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("GitHub Status");
 
-            if ui.button("Fetch/Refresh").clicked() {
+            if ui.button("Pull Requests").clicked() {
+                *state = State::Pulls
+            }
+
+            if ui.button("Workflows").clicked() {
+                *state = State::Runs
+            }
+
+            if ui.button("Repositories").clicked() {
+                *state = State::Repositories
+            }
+
+            ui.separator();
+
+            if ui.button("Refresh").clicked() {
                 match state {
                     State::Pulls => {
                         for repo in repositories.clone().into_iter() {
@@ -132,18 +146,6 @@ impl eframe::App for TemplateApp {
                     },
                     _ => println!("Unsupported refresh")
                 }
-            }
-
-            if ui.button("Pull Requests").clicked() {
-                *state = State::Pulls
-            }
-
-            if ui.button("Workflows").clicked() {
-                *state = State::Runs
-            }
-
-            if ui.button("Repositories").clicked() {
-                *state = State::Repositories
             }
         });
 
