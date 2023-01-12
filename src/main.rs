@@ -3,9 +3,7 @@
 
 use aap_status::TemplateApp;
 
-// When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
-// #[tokio::main]
 fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();

@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 
 use egui::{Color32, TextFormat, Ui};
 
-use crate::github::{WorkflowRun};
-use crate::PullRequest;
-use crate::Runs;
+use crate::github::pulls::PullRequest;
+use crate::github::runs::WorkflowRuns;
+use crate::github::runs::WorkflowRun;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
@@ -65,7 +65,7 @@ impl Table {
     pub fn workflow_runs_ui(
         &mut self,
         ui: &mut Ui,
-        repo_with_runs: &BTreeMap<String, Runs>,
+        repo_with_runs: &BTreeMap<String, WorkflowRuns>,
     ) {
         use egui_extras::{Column, TableBuilder};
 
@@ -116,7 +116,7 @@ impl Table {
                                 let green = TextFormat { color: Color32::from_rgb(100, 255, 146), ..Default::default() };
                                 let red = TextFormat { color: Color32::from_rgb(255, 100, 100), ..Default::default() };
                                 let mut job = LayoutJob::default();
-                                let color = if conclusion == "success" {green} else {red};
+                                let color = if conclusion == "success" { green } else { red };
                                 job.append(conclusion, 0.0, color);
                                 ui.label(job);
                             });
